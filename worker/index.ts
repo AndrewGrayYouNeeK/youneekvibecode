@@ -4,7 +4,7 @@ import { createApp } from './app';
 // import * as Sentry from '@sentry/cloudflare';
 // import { sentryOptions } from './observability/sentry';
 import { DORateLimitStore as BaseDORateLimitStore } from './services/rate-limit/DORateLimitStore';
-import { getPreviewDomain, getProtocolForHost, isSeparatePreviewDomain } from './utils/urls';
+import { getPreviewDomain, getProtocolForHost, isGeneratedAppHost, isMainPlatformHost, isSeparatePreviewDomain } from './utils/urls';
 import { proxyToAiGateway } from './services/aigateway-proxy/controller';
 import { isOriginAllowed } from './config/security';
 import { isDev } from './utils/envs';
@@ -262,12 +262,8 @@ const worker = {
 
 		// --- Domain-based Routing ---
 
-		// Normalize hostnames for both local development (localhost) and production.
-		const isMainDomainRequest =
-			hostname === env.CUSTOM_DOMAIN || hostname === 'localhost';
-		const isSubdomainRequest =
-			hostname.endsWith(`.${previewDomain}`) ||
-			(hostname.endsWith('.localhost') && hostname !== 'localhost');
+		const isMainDomainRequest = isMainPlatformHost(hostname, env);
+		const isSubdomainRequest = isGeneratedAppHost(hostname, previewDomain);
 
 		if (separatePreviewDomain && hostname === previewDomain) {
 			const params = matchSpacePreviewParams(pathname);
