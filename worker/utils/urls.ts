@@ -14,6 +14,34 @@ export function getPreviewDomain(env: Env): string {
     return env.CUSTOM_DOMAIN;
 }
 
+/** Hostname without port, lowercased. DNS names are case-insensitive. */
+export function normalizeHostname(host: string): string {
+    return host.split(':')[0].toLowerCase();
+}
+
+/**
+ * True when this request should hit the VibeSDK platform (UI, API, Space previews),
+ * not a generated-app subdomain.
+ *
+ * Matches CUSTOM_DOMAIN case-insensitively, localhost, and the Worker's own
+ * `*.workers.dev` URL so dashboard deploys work before a custom domain is live.
+ */
+export function isMainPlatformHost(hostname: string, env: Pick<Env, 'CUSTOM_DOMAIN'>): boolean {
+    const host = normalizeHostname(hostname);
+    const customDomain = env.CUSTOM_DOMAIN ? normalizeHostname(env.CUSTOM_DOMAIN) : '';
+    if (host === 'localhost' || (customDomain !== '' && host === customDomain)) {
+        return true;
+    }
+    return host.endsWith('.workers.dev');
+}
+
+export function isGeneratedAppHost(hostname: string, previewDomain: string): boolean {
+    const host = normalizeHostname(hostname);
+    const domain = normalizeHostname(previewDomain);
+    if (!domain) return false;
+    return host.endsWith(`.${domain}`) || (host.endsWith('.localhost') && host !== 'localhost');
+}
+
 export function isSeparatePreviewDomain(env: Env): boolean {
     const previewDomain = getPreviewDomain(env);
     return previewDomain.trim() !== '' && previewDomain !== env.CUSTOM_DOMAIN;

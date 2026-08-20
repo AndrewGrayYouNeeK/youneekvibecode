@@ -34,6 +34,11 @@
     "version_metadata": {
         "binding": "CF_VERSION_METADATA"
     },
+	// Cloudflare Workers Builds / dashboard deploy only runs wrangler. The
+	// Vite client assets in dist/client must exist before upload.
+	"build": {
+		"command": "bun run build"
+	},
 	"assets": {
 		"directory": "dist/client",
 		"not_found_handling": "single-page-application",
@@ -82,38 +87,43 @@
 		"binding": "BROWSER",
 		"remote": true
 	},
-    "dispatch_namespaces": [
-        {
-            "binding": "DISPATCHER",
-            "namespace": "vibesdk-default-namespace",
-            "remote": true
-        }
-    ],
-    "artifacts": [
-        {
-            "binding": "ARTIFACTS",
-            "namespace": "vibesdk-production"
-        }
-    ],
-	"containers": [
-		{
-			"class_name": "UserAppSandboxService",
-			"image": "./SandboxDockerfile",
-            // "image": "registry.cloudflare.com/vibesdk-production-userappsandboxservice:cfe197fc",
-            // Altering max_instances value will have no effect. Please use the MAX_SANDBOX_INSTANCES var instead.
-			"max_instances": 1400,
-            // ATTENTION: Altering instance_type value will have no effect. Please use the SANDBOX_INSTANCE_TYPE var instead.
-            "instance_type": {
-                "vcpu": 4,
-                "memory_mib": 8192,
-                "disk_mb": 10240
-            },
-            "rollout_step_percentage": 100,
-			"ssh": {
-				"enabled": true
-			}
-		}
-	],
+	// Workers for Platforms is optional. Declaring a missing dispatch
+	// namespace fails Workers Builds immediately. Re-enable after creating
+	// the namespace on the account. Runtime already guards `env.DISPATCHER`.
+	// "dispatch_namespaces": [
+	//     {
+	//         "binding": "DISPATCHER",
+	//         "namespace": "vibesdk-default-namespace",
+	//         "remote": true
+	//     }
+	// ],
+	// Cloudflare Artifacts is closed beta. Declaring this binding fails
+	// wrangler deploy (error 10015) on accounts without access. Re-enable
+	// when ENABLE_ARTIFACTS="true" and the account is in the beta.
+	// "artifacts": [
+	//     {
+	//         "binding": "ARTIFACTS",
+	//         "namespace": "vibesdk-production"
+	//     }
+	// ],
+	// Sandbox containers need Docker at deploy time. Workers Builds (and
+	// `wrangler versions upload` on PR branches) fail when the Docker CLI
+	// is missing. Generated-app previews use Worker Loader, not this image.
+	// Re-enable for accounts that deploy the sandbox container.
+	// "containers": [
+	//     {
+	//         "class_name": "UserAppSandboxService",
+	//         "image": "./SandboxDockerfile",
+	//         "max_instances": 10,
+	//         "instance_type": {
+	//             "vcpu": 4,
+	//             "memory_mib": 8192,
+	//             "disk_mb": 10240
+	//         },
+	//         "rollout_step_percentage": 100,
+	//         "ssh": { "enabled": true }
+	//     }
+	// ],
 	"d1_databases": [
 		{
 			"binding": "DB",
@@ -203,17 +213,20 @@
             "tag": "v6"
         }
 	],
-	"routes": [
-        {
-            "pattern": "build.cloudflare.dev",
-            "custom_domain": true
-        },
-        {
-            "pattern": "*build-preview.cloudflare.dev/*",
-            "custom_domain": false,
-            "zone_id": "db01fac4261b2604aacad8410443a3e2"
-        }
-    ],
+	// Attach usedartifacts.com in the dashboard after the Worker publishes.
+	// Checking zone routes during `wrangler versions upload` fails Workers
+	// Builds when the zone is missing or the build token cannot read it.
+	// "routes": [
+	//     {
+	//         "pattern": "usedartifacts.com",
+	//         "custom_domain": true
+	//     },
+	//     {
+	//         "pattern": "*usedartifacts.com/*",
+	//         "custom_domain": false,
+	//         "zone_name": "usedartifacts.com"
+	//     }
+	// ],
 	"vars": {
         "TEMPLATES_REPOSITORY": "https://github.com/cloudflare/vibesdk-templates",
         "DISPATCH_NAMESPACE": "vibesdk-default-namespace",
@@ -235,12 +248,14 @@
             },
             "version": "1.0.0"
         },
-        "CUSTOM_DOMAIN": "UsedArtifacts.com",
+        "CUSTOM_DOMAIN": "usedartifacts.com",
         "MAX_SANDBOX_INSTANCES": "10",
         "SANDBOX_INSTANCE_TYPE": "standard-3",
         "DEV_BROWSER_SIDECAR_URL": "http://127.0.0.1:9223",
         "DEV_BROWSER_PREVIEW_ORIGIN": "http://localhost:5173"
     },
-	"workers_dev": false,
-	"preview_urls": false
+	// Keep workers.dev enabled so Cloudflare can serve the Worker even if
+	// the custom domain zone is not ready yet.
+	"workers_dev": true,
+	"preview_urls": true
 }
